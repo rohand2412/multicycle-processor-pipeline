@@ -1,0 +1,6 @@
+What techniques did you use to improve CPI compared to your p7 implementation?
+For each:
+
+    - what did you do?
+    - what issues did it introduce?
+    - how did you address those issues?
