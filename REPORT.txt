@@ -1,6 +1,11 @@
-What techniques did you use to improve CPI compared to your p7 implementation?
-For each:
+(1) Discuss the hazards you had to deal with. For each:
+ - What type of hazard was it?
+ - Show an instruction sequence that exposes it
+ - What solutions did you consider?
+ - Which one did you pick? Why?
 
+(2) What techniques did you use to improve CPI?
+For each:
     - what did you do?
     - what issues did it introduce?
     - how did you address those issues?
