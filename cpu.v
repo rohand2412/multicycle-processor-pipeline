@@ -157,11 +157,11 @@ module main();
     assign e_st  = e_inst[15:12] == 4'b1111 & e_inst[7:4] == 4'b0001;
     assign e_ldp = e_inst[15:12] == 4'b1111 & e_inst[7:4] == 4'b0010;
     assign e_stp = e_inst[15:12] == 4'b1111 & e_inst[7:4] == 4'b0011;
-    assign halt_in = e_valid & (
+    assign halt_in = e_valid & (e_inst === 16'hxxxx | (
         ~e_sub & ~e_se & ~e_sh
         & ~e_jz & ~e_jnz & ~e_js & ~e_jns
         & ~e_ld & ~e_st & ~e_ldp & ~e_stp
-    );
+    ));
 
     reg e_wen = 0;
     wire e_wen_in;
