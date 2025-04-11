@@ -74,7 +74,7 @@ module main();
     assign mem_raddr1 = e_ldp_bit1 ? e_ra[15:1] + 1 : e_ra[15:1];
     assign mem_wdata = e_rbt;
     assign mem_waddr = e_stp_bit ? e_ra[15:1] + 1 : e_ra[15:1];
-    assign mem_wen = (e_st | e_stp) & e_valid;
+    assign mem_wen = ((e_st | e_stp) & e_valid) & ~halt;
 
     reg [15:0] f_nextinst;
     wire [15:0] f_nextinst_in;
@@ -116,7 +116,7 @@ module main();
     assign reg_raddr1 = e_stp_bit_in ? d_inst_in[3:0] + 1 : d_raddr1_in;
     assign reg_wdata = (e_ld_bit2 | e_ldp_bit2) ? mem_rdata1 : e_rt;
     assign reg_waddr = e_ldp_bit3 ? e_inst_t + 1 : e_inst_t;
-    assign reg_wen = ((e_sub | e_se | e_sh) & e_valid) | (e_ld_bit2 | e_ldp_bit2);
+    assign reg_wen = (((e_sub | e_se | e_sh) & e_valid) | (e_ld_bit2 | e_ldp_bit2)) & ~halt;
 
     always @(posedge clk) begin
         d_valid <= d_valid_in;
