@@ -212,8 +212,8 @@ module main();
     assign e_jmp = (
         (e_ra == 0 & e_jz)
         | (e_ra != 0 & e_jnz)
-        | (e_ra < 0 & e_js)
-        | (e_ra >= 0 & e_jns)
+        | (e_ra[15] & e_js)
+        | (~e_ra[15] & e_jns)
     );
 
     reg e_ld_bit1 = 0;
