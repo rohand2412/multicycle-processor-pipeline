@@ -55,12 +55,6 @@ module main();
     wire stall0;
     wire stall1;
 
-    always @(posedge clk) begin
-        if (reg_wen & reg_waddr == 0) begin
-            $write("%c", reg_wdata[7:0]);
-        end
-    end
-
     // fetch
     reg f_valid = 0;
     wire f_valid_in;
@@ -92,8 +86,8 @@ module main();
     reg [15:0] f_oldinst;
     wire [15:0] f_oldinstmux_in;
     wire [15:0] f_oldinst_in;
-    assign f_oldinstmux_in = stall0 ? f_oldinst : mem_rdata0;
-    assign f_oldinst_in = stall1 ? f_nextinst : f_oldinstmux_in;
+    assign f_oldinstmux_in = stall1 ? f_nextinst : mem_rdata0;
+    assign f_oldinst_in = stall0 ? f_oldinst : f_oldinstmux_in;
 
     wire [15:0] f_inst_out;
     assign f_inst_out = stall0 ? f_oldinst : f_nextinst_out;
@@ -127,6 +121,10 @@ module main();
     always @(posedge clk) begin
         d_valid <= d_valid_in;
         d_inst <= d_inst_in;
+
+        if (reg_wen & reg_waddr == 0) begin
+            $write("%c", reg_wdata[7:0]);
+        end
     end
 
     // execute
@@ -159,13 +157,13 @@ module main();
     assign e_st  = e_inst[15:12] == 4'b1111 & e_inst[7:4] == 4'b0001;
     assign e_ldp = e_inst[15:12] == 4'b1111 & e_inst[7:4] == 4'b0010;
     assign e_stp = e_inst[15:12] == 4'b1111 & e_inst[7:4] == 4'b0011;
-    assign halt_in = (
+    assign halt_in = e_valid & (
         ~e_sub & ~e_se & ~e_sh
         & ~e_jz & ~e_jnz & ~e_js & ~e_jns
         & ~e_ld & ~e_st & ~e_ldp & ~e_stp
     );
 
-    reg e_wen;
+    reg e_wen = 0;
     wire e_wen_in;
     assign e_wen_in = reg_wen;
 
@@ -193,10 +191,10 @@ module main();
     assign e_inst_t = e_inst[3:0];
 
     wire [15:0] e_ra;
-    assign e_ra = e_inst_a == e_waddr & e_wen ? e_wdata : reg_rdata0;
+    assign e_ra = e_inst_a == 0 ? 0 : (e_inst_a == e_waddr & e_wen ? e_wdata : reg_rdata0);
 
     wire [15:0] e_rbt;
-    assign e_rbt = e_inst_bt == e_waddr & e_wen ? e_wdata : reg_rdata1;
+    assign e_rbt = e_inst_bt == 0 ? 0 : (e_inst_bt == e_waddr & e_wen ? e_wdata : reg_rdata1);
 
     wire [15:0] e_sub_rt;
     assign e_sub_rt = e_ra - e_rbt;
@@ -218,16 +216,16 @@ module main();
         | (e_ra >= 0 & e_jns)
     );
 
-    reg e_ld_bit1;
-    reg e_ld_bit2;
+    reg e_ld_bit1 = 0;
+    reg e_ld_bit2 = 0;
     wire e_ld_bit1_in;
     wire e_ld_bit2_in;
     assign e_ld_bit1_in = (e_ld & e_valid) & ~e_ld_bit2;
     assign e_ld_bit2_in = e_ld_bit1 & ~e_ld_bit2;
 
-    reg e_ldp_bit1;
-    reg e_ldp_bit2;
-    reg e_ldp_bit3;
+    reg e_ldp_bit1 = 0;
+    reg e_ldp_bit2 = 0;
+    reg e_ldp_bit3 = 0;
     wire e_ldp_bit1_in;
     wire e_ldp_bit2_in;
     wire e_ldp_bit3_in;
@@ -235,7 +233,7 @@ module main();
     assign e_ldp_bit2_in = e_ldp_bit1 & ~e_ldp_bit3;
     assign e_ldp_bit3_in = e_ldp_bit2 & ~e_ldp_bit3;
 
-    reg e_stp_bit;
+    reg e_stp_bit = 0;
     wire e_stp_bit_in;
     assign e_stp_bit_in = (e_stp & e_valid) & ~e_stp_bit;
 
