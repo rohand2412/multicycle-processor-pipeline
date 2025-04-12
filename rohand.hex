@@ -1,0 +1,131 @@
+@0
+
+// This test creates a jump table in memory
+// Each address in the jump table corresponds to an independent test
+// Each test jumps back to the control block (marked in code) 
+// So that a jump to the next test can be made
+
+// Tests (Overall): Flushing, forwarding, stalling, branching
+// All instructions except jnz and jns
+// See below for what each test individually tests
+
+// Create jump table
+82E1    // movl r1, 46          Test0 Addr
+8442    // movl r2, 68          Test1 Addr
+8F43    // movl r3, 0xF4        0xF4 -> 6 words before end of memory
+F331    // stp r1, r3
+8621    // movl r1, 98          Test2 Addr
+87A2    // movl r2, 122         Test3 Addr
+8F83    // movl r3, 0xF8        0xF8 -> 4 words before end of memory
+F331    // stp r1, r3
+89EF    // movl r15, 158        Test4 Addr
+900F    // movh r15, 0          Zero out higher order bits
+8FC3    // movl r3, 0xFC        0xFC -> 2 words before end of memory
+F33F    // stp r15, r3          Store pair of r15 and r0 (test wraparound)
+
+// Verify that 0 was stored in last word of memory
+8300    // movl r0, 48          Print '0' to indicate we're here
+8FE2    // movl r2, 0xFE        0xFE = -2
+0323    // sub r3, r3, r2       0xFC - (-2) = 0xFC + 2 = 0xFE
+F301    // ld r1, r3            Load last word in memory
+8262    // movl r2, 38          Control block address
+E102    // jz r2, r1            Verify 0
+FFFF    // invalid              Skipped
+
+// Control block
+80C3    // movl r3, 0x0C        0x0C = -0xF4
+0132    // sub r2, r1, r3       r1 - (-0xF4) = r1 + 0xF4
+F202    // ld r2, r2            Load address from jump table
+E002    // jz r2, r0            Unconditional jump
+
+// Test0: stp, ldp, and pipeline hazards
+8F02    // movl r2, 0xF0
+8333    // movl r3, 51          51 -> '3'
+8324    // movl r4, 50          50 -> '2'
+F233    // stp r3, r2           Store '3', '2'
+8310    // movl r0, 49          Print '1'
+F22F    // ldp r15, r2          Load '3' into r15 and '2' into r0 (Print '2')
+0F00    // sub r0, r15, r0      Print '3'
+
+// Jump back to control block
+8FE2    // movl r2, 0xFE        0xFE = -2
+0121    // sub r1, r1, r2       r1 - (-2) = r1 + 2
+8262    // movl r2, 38          Control block address
+E002    // jz r2, r0            Unconditional jump
+
+// Test1: sub and pipeline hazards
+8014    // movl r4, 0x01
+83C5    // movl r5, 60          60 = '4' + 8
+0543    // sub r3, r5, r4       r3 = r5 - 1 (repeated 4 times)
+0345    // sub r5, r3, r4       r5 = r3 - 1 (repeated 4 times)
+0543    // sub r3, r5, r4
+0345    // sub r5, r3, r4
+0543    // sub r3, r5, r4
+0345    // sub r5, r3, r4
+0543    // sub r3, r5, r4
+0345    // sub r5, r3, r4
+0500    // sub r0, r5, r0       Print '4'
+
+// Jump back to control block (commented above)
+8FE2    // movl r2, 0xFE
+0121    // sub r1, r1, r2
+8262    // movl r2, 38
+E002    // jz r2, r0
+
+// Test2: for loop from '5' to '9' and pipeline hazards
+8FF5    // movl r5, 0xFF        0xFF = -1
+8394    // movl r4, 57          57 -> '9'
+8353    // movl r3, 53          53 -> '5'
+86A2    // movl r2, 106         Address of next instruction (loop start)
+0300    // sub r0, r3, r0       Prints '5', '6', '7', '8', '9'
+0346    // sub r6, r3, r4       r3 - r4 (negative if we're not at '9')
+0353    // sub r3, r3, r5       Add 1 to r3 (r3 - (-1) = r3 + 1)
+E622    // js r2, r6            Loop if not at '9'
+
+// Jump back to control block (commented above)
+8FE2    // movl r2, 0xFE
+0121    // sub r1, r1, r2
+8262    // movl r2, 38
+E002    // jz r2, r0
+
+// Test3: Use ldp/stp to store a string in memory and print it out and pipeline hazards
+8412    // movl r2, 65          65 -> 'A'
+8423    // movl r3, 66          66 -> 'B'
+8F04    // movl r4, 0xF0        Memory address
+F432    // stp r2, r4
+8432    // movl r2, 67          67 -> 'C'
+8443    // movl r3, 68          68 -> 'D'
+8EC5    // movl r5, 0xEC        Memory address
+F532    // stp r2, r5
+F422    // ldp r2, r4           Load 'A', 'B'
+0200    // sub r0, r2, r0       Print 'A'
+0300    // sub r0, r3, r0       Print 'B'
+F522    // ldp r2, r5           Load 'C', 'D'
+0200    // sub r0, r2, r0       Print 'C'
+0300    // sub r0, r3, r0       Print 'D'
+
+// Jump back to control block (commented above)
+8FE2    // movl r2, 0xFE
+0121    // sub r1, r1, r2
+8262    // movl r2, 38
+E002    // jz r2, r0
+
+// Test4: Use ld/st to store a string in memory and print it out and pipeline hazards
+8452    // movl r2, 69          69 -> 'E'
+8F23    // movl r3, 0xF2        Memory address
+F312    // st r2, r3
+8462    // movl r2, 70          70 -> 'F'
+8F04    // movl r4, 0xF0        Memory address
+F412    // st r2, r4
+8472    // movl r2, 71          71 -> 'G'
+8EC5    // movl r5, 0xEC        Memory address
+F512    // st r2, r5
+8482    // movl r2, 72          72 -> 'H'
+8EE6    // movl r6, 0xEE        Memory address
+F612    // st r2, r6
+F300    // ld r0, r3            Print 'E'
+F400    // ld r0, r4            Print 'F'
+F500    // ld r0, r5            Print 'G'
+F600    // ld r0, r6            Print 'H'
+
+FFFF    // halt
