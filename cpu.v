@@ -58,19 +58,21 @@ module main();
     // fetch
     reg f_valid = 0;
     wire f_valid_in;
-    assign f_valid_in = ~flush;
+    assign f_valid_in = 1;
 
     reg [15:1] f_pc = 15'h0000;
     wire [15:1] f_pc_next;
     wire [15:1] f_pc_in;
-    assign f_pc_next = flush ? e_rbt[15:1] : f_pc + 1;
-    assign f_pc_in = stall0 ? f_pc : f_pc_next;
+    assign f_pc_next = flush ? e_rbt[15:1] : f_pc;
+    assign f_pc_in = stall0 ? f_pc : f_pc_next + 1;
 
     reg [15:1] f_oldpc;
+    wire [15:1] f_oldpc_next;
     wire [15:1] f_oldpc_in;
-    assign f_oldpc_in = stall0 ? f_oldpc : f_pc;
+    assign f_oldpc_next = flush ? e_rbt[15:1] : f_pc;
+    assign f_oldpc_in = stall0 ? f_oldpc : f_oldpc_next;
 
-    assign mem_raddr0 = stall0 ? f_oldpc : f_pc;
+    assign mem_raddr0 = f_oldpc_in;
     assign mem_raddr1 = e_ldp_bit1 ? e_ra[15:1] + 1 : e_ra[15:1];
     assign mem_wdata = e_rbt;
     assign mem_waddr = e_stp_bit ? e_ra[15:1] + 1 : e_ra[15:1];
