@@ -6,8 +6,11 @@ module bp(input clk,
 
     reg [14:0] data [0:15'h7fff];
 
+    integer i;
     initial begin
-        $readmemh("bp.hex", data);
+        for (i = 0; i <= 15'h7fff; i = i + 1) begin
+            data[i] = i + 1;
+        end
     end
 
     assign rdata0 = data[raddr0];
