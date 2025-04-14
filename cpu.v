@@ -50,6 +50,18 @@ module main();
         reg_wen, reg_waddr, reg_wdata
     );
 
+    // branch prediction
+    wire [15:1] bp_raddr0;
+    wire [15:1] bp_rdata0;
+    wire [15:1] bp_waddr;
+    wire [15:1] bp_wdata;
+    wire bp_wen;
+    bp bp(
+        clk,
+        bp_raddr0, bp_rdata0,
+        bp_wen, bp_waddr, bp_wdata
+    );
+
     // control
     wire flush;
     wire stall0;
@@ -61,15 +73,19 @@ module main();
     assign f_valid_in = 1;
 
     reg [15:1] f_pc = 15'h0000;
-    wire [15:1] f_pc_next;
+
+    assign bp_raddr0 = flush ? e_jmp_addr : f_pc;
+    assign bp_wdata = e_jmp_addr;
+    assign bp_waddr = e_pc;
+    assign bp_wen = flush;
+
     wire [15:1] f_pc_in;
-    assign f_pc_next = flush ? e_rbt[15:1] : f_pc;
-    assign f_pc_in = stall0 ? f_pc : f_pc_next + 1;
+    assign f_pc_in = stall0 ? f_pc : bp_rdata0;
 
     reg [15:1] f_oldpc;
     wire [15:1] f_oldpc_next;
     wire [15:1] f_oldpc_in;
-    assign f_oldpc_next = flush ? e_rbt[15:1] : f_pc;
+    assign f_oldpc_next = flush ? e_jmp_addr : f_pc;
     assign f_oldpc_in = stall0 ? f_oldpc : f_oldpc_next;
 
     assign mem_raddr0 = f_oldpc_in;
@@ -77,6 +93,14 @@ module main();
     assign mem_wdata = e_rbt;
     assign mem_waddr = e_stp_bit ? e_ra[15:1] + 1 : e_ra[15:1];
     assign mem_wen = (e_st | e_stp) & e_valid;
+
+    reg [15:1] f_pc1;
+    wire [15:1] f_pc1_in;
+    assign f_pc1_in = mem_raddr0;
+
+    reg [15:1] f_pc2;
+    wire [15:1] f_pc2_in;
+    assign f_pc2_in = f_pc1;
 
     reg [15:0] f_nextinst;
     wire [15:0] f_nextinst_in;
@@ -98,6 +122,8 @@ module main();
         f_valid <= f_valid_in;
         f_pc <= f_pc_in;
         f_oldpc <= f_oldpc_in;
+        f_pc1 <= f_pc1_in;
+        f_pc2 <= f_pc2_in;
         f_oldinst <= f_oldinst_in;
         f_nextinst <= f_nextinst_in;
     end
@@ -106,6 +132,10 @@ module main();
     reg d_valid = 0;
     wire d_valid_in;
     assign d_valid_in = f_valid & ~flush;
+
+    reg [15:1] d_pc;
+    wire [15:1] d_pc_in;
+    assign d_pc_in = f_pc2;
 
     reg [15:0] d_inst;
     wire [15:0] d_inst_in;
@@ -128,6 +158,7 @@ module main();
 
     always @(posedge clk) begin
         d_valid <= d_valid_in;
+        d_pc <= d_pc_in;
         d_inst <= d_inst_in;
 
         if (reg_wen & reg_waddr == 0) begin
@@ -139,6 +170,9 @@ module main();
     reg e_valid = 0;
     wire e_valid_in;
     assign e_valid_in = d_valid & ~flush;
+
+    wire [15:1] e_pc;
+    assign e_pc = d_pc;
 
     wire [15:0] e_inst;
     assign e_inst = d_inst;
@@ -240,7 +274,16 @@ module main();
     wire e_stp_bit_in;
     assign e_stp_bit_in = (e_stp & e_valid) & ~e_stp_bit;
 
-    assign flush = e_jmp & e_valid;
+    wire [15:1] e_jmp_addr;
+    assign e_jmp_addr = e_jmp ? e_rbt[15:1] : e_pc + 1;
+
+    wire e_inst_j;
+    assign e_inst_j = e_jz | e_jnz | e_js | e_jns;
+
+    wire e_wrong_branch;
+    assign e_wrong_branch = e_inst_j & (e_jmp_addr != d_pc_in);
+
+    assign flush = e_valid & e_wrong_branch;
     assign stall0 = e_ld_bit1_in | e_ldp_bit1_in | e_stp_bit_in;
     assign stall1 = e_ld_bit1 | e_ldp_bit1 | e_stp_bit;
 
