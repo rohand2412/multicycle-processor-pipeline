@@ -4,7 +4,6 @@
  - What solutions did you consider?
  - Which one did you pick? Why?
 
-There were five main hazards we had to deal with.
 1. Conditional branch outcome differs from branch prediction
 - Control hazard
 - jz r1, r2 // We predict taking the branch and we don't or vice versa
@@ -59,3 +58,28 @@ For each:
     - what did you do?
     - what issues did it introduce?
     - how did you address those issues?
+
+1. Branch Prediction
+- Created a table that maps a PC to the PC predicted to come next. Initially,
+  all PCs are mapped to PC + 1, but everytime a branch is mispredicted the mapping
+  from the jump instruction's associated PC is updated with the PC to branch to.
+- No issues were introduced. It was very simple to add, instead of incrementing PC
+  the PC is updated with the PC provided by the table.
+- No issues to address.
+
+2. Removing PC update step for pipeline flush
+- Rather than writing new PC to PC and then letting PC put the address in memory,
+  we directly put the new PC in memory and update the PC with the predicted branch of
+  our new PC from the table. Effectively, simulating the cycle where the PC would update
+  itself and write to memory without actually costing us a cycle.
+- No issues were introduced. It was just an additional line or two of verilog.
+- No issues to address.
+
+3. Precise stalling
+- Implemented a mechanism in my pipeline that allows me to freeze my pipeline and
+  unfreeze it on demand without losing any cycles. This allowed me to not have to flush
+  on every data and resource hazard and rather only burning exactly as many cycles as
+  necessary which greatly improved my CPI.
+- No issues were introduced as I drew out the mechanism before touching verilog which
+  allowed me to vet all oversights before coding.
+- No issues to address.
